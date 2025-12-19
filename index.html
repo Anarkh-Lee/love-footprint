@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>我们的爱情足迹</title>
+  <style> 
+    body { margin: 0; background: #000; overflow: hidden; } 
+    
+    .map-card {
+      pointer-events: auto; 
+      transition: all 0.3s;
+      transform: translateY(0);
+      z-index: 100;
+    }
+    .map-card:hover {
+      transform: translateY(-10px);
+      z-index: 999;
+    }
+    
+    .card-content {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(4px);
+      padding: 10px; 
+      border-radius: 8px; 
+      text-align: center; 
+      width: 150px; 
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      font-family: 'Microsoft YaHei', sans-serif;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.4);
+    }
+  </style>
+  
+  <script src="https://unpkg.com/globe.gl"></script>
+</head>
+
+<body>
+  <div id="globeViz"></div>
+
+  <script>
+    const myPlaces = [
+      { lat: 38.9208, lng: 121.6392, name: "大连 · 相识", img: "https://picsum.photos/id/1015/150/100", desc: "2013.05.06<br>故事开始的地方" },
+      { lat: 31.2304, lng: 121.4737, name: "上海 · 跨年", img: "https://picsum.photos/id/1016/150/100", desc: "2022.01.01<br>外滩烟花" },
+      { lat: 35.6895, lng: 139.6917, name: "东京 · 约定", img: "https://picsum.photos/id/1018/150/100", desc: "2023.04.15<br>樱花树下" },
+      { lat: 48.8566, lng: 2.3522, name: "巴黎 · 未来", img: "https://picsum.photos/id/1019/150/100", desc: "下一站目的地" }
+    ];
+
+    // --- 状态管理 ---
+    let isZoomedIn = false;
+    // --- 新增：点击锁（关键修复） ---
+    // 用来防止点击卡片时瞬间触发地球背景的点击事件
+    let clickLock = false; 
+
+    const world = Globe()
+      (document.getElementById('globeViz'))
+      .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+      .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+      .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
+      .htmlElementsData(myPlaces)
+      .htmlElement(d => {
+        const el = document.createElement('div');
+        el.className = 'map-card';
+        el.innerHTML = `
+          <div class="card-content">
+            <img src="${d.img}" style="width: 100%; border-radius: 4px; display: block; margin-bottom: 5px;">
+            <div style="color: #d63031; font-weight: bold; font-size: 14px;">${d.name}</div>
+            <div style="color: #333; font-size: 12px; margin-top:2px;">${d.desc}</div>
+          </div>
+          <div style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); 
+                      width: 0; height: 0; 
+                      border-left: 8px solid transparent; 
+                      border-right: 8px solid transparent; 
+                      border-top: 8px solid rgba(255, 255, 255, 0.85);"></div>
+        `;
+        
+        // --- 点击卡片（下探） ---
+        el.onclick = (event) => {
+          // 1. 阻止 DOM 冒泡
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+
+          console.log("飞向:", d.name);
+
+          // 2. 【核心修复】上锁！
+          // 告诉程序：接下来 500ms 内，如果检测到地球被点击，那是误触，别理它！
+          clickLock = true;
+          setTimeout(() => {
+            clickLock = false;
+          }, 500);
+
+          // 3. 设定状态
+          isZoomedIn = true;
+          world.controls().autoRotate = false;
+
+          // 4. 执行动画
+          world.pointOfView({ lat: d.lat, lng: d.lng, altitude: 0.3 }, 2000);
+        };
+
+        return el;
+      });
+
+    // --- 点击地球（恢复） ---
+    const handleReset = () => {
+      // 【核心修复】如果锁是开着的，说明刚才点了卡片，必须忽略这次“地球点击”
+      if (clickLock) {
+        console.log("忽略由于冒泡导致的误触");
+        return;
+      }
+
+      // 只有在下探状态下才允许恢复
+      if (isZoomedIn) {
+        console.log("返回全览模式");
+        
+        world.pointOfView({ altitude: 2.5 }, 2000);
+        world.controls().autoRotate = true;
+        isZoomedIn = false;
+      }
+    };
+
+    // 绑定到地球点击事件
+    world.onGlobeClick(handleReset);
+    
+    // 绑定到背景点击事件（防止点星空没反应）
+    // 注意：如果旧版本 globe.gl 不支持这个方法，控制台会报错但不会影响主流程
+    // 为了保险，我们加个 try-catch 或者直接保留 onGlobeClick 即可覆盖大部分场景
+    // 这里只用 onGlobeClick 足够覆盖地球变大后的点击区域
+
+    // 初始设置
+    world.controls().autoRotate = true;
+    world.controls().autoRotateSpeed = 0.6;
+    world.pointOfView({ altitude: 2.5 });
+
+  </script>
+</body>
+</html>
