@@ -2,10 +2,11 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <title>我们的爱情足迹</title>
+  <title>我们的爱情足迹 - 视频版</title>
   <style> 
-    body { margin: 0; background: #000; overflow: hidden; } 
+    body { margin: 0; background: #000; overflow: hidden; font-family: 'Microsoft YaHei', sans-serif; } 
     
+    /* --- 卡片样式 --- */
     .map-card {
       pointer-events: auto; 
       transition: all 0.3s;
@@ -13,21 +14,64 @@
       z-index: 100;
     }
     .map-card:hover {
-      transform: translateY(-10px);
+      transform: translateY(-10px) scale(1.05);
       z-index: 999;
     }
-    
     .card-content {
-      background: rgba(255, 255, 255, 0.85);
+      background: rgba(255, 255, 255, 0.9);
       backdrop-filter: blur(4px);
       padding: 10px; 
       border-radius: 8px; 
       text-align: center; 
       width: 150px; 
       box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-      font-family: 'Microsoft YaHei', sans-serif;
       cursor: pointer;
       border: 1px solid rgba(255,255,255,0.4);
+      position: relative;
+    }
+    /* 给有视频的卡片加个播放图标 */
+    .play-icon {
+      position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%);
+      width: 30px; height: 30px; background: rgba(0,0,0,0.6); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; pointer-events: none;
+    }
+    .play-icon::after {
+      content: ''; display: block; width: 0; height: 0;
+      border-left: 10px solid #fff; border-top: 6px solid transparent; border-bottom: 6px solid transparent;
+      margin-left: 2px;
+    }
+
+    /* --- 视频弹窗样式 (新增) --- */
+    #video-modal {
+      display: none; /* 默认隐藏 */
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85); /* 深色背景遮罩 */
+      z-index: 10000; /* 保证在最顶层 */
+      justify-content: center; align-items: center;
+      flex-direction: column;
+      opacity: 0; transition: opacity 0.5s; /* 渐显动画 */
+    }
+    #video-container {
+      width: 80%; max-width: 800px;
+      background: #000; border-radius: 12px; overflow: hidden;
+      box-shadow: 0 0 50px rgba(255,255,255,0.2);
+      transform: scale(0.8); transition: transform 0.3s;
+    }
+    video { width: 100%; height: auto; display: block; }
+    
+    #close-btn {
+      margin-top: 20px;
+      padding: 10px 30px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      color: #fff; border-radius: 30px; cursor: pointer;
+      font-size: 16px; transition: all 0.3s;
+    }
+    #close-btn:hover { background: #fff; color: #000; }
+
+    #instruction {
+      position: absolute; top: 20px; width: 100%; text-align: center;
+      color: rgba(255, 255, 255, 0.7); font-size: 14px; pointer-events: none; z-index: 100;
     }
   </style>
   
@@ -35,22 +79,98 @@
 </head>
 
 <body>
+  <div id="instruction">点击卡片播放视频 · 点击地球任意区域返回</div>
+  
   <div id="globeViz"></div>
 
+  <div id="video-modal" onclick="closeVideo()">
+    <div id="video-container" onclick="event.stopPropagation()"> <video id="main-player" controls>
+        <source src="" type="video/mp4">
+        您的浏览器不支持 HTML5 视频。
+      </video>
+    </div>
+    <button id="close-btn" onclick="closeVideo()">关闭视频</button>
+  </div>
+
   <script>
+    // --- 1. 数据配置 (新增 video 字段) ---
+    // 你可以把 video 换成你自己的 MP4 地址
     const myPlaces = [
-      { lat: 38.9208, lng: 121.6392, name: "大连 · 相识", img: "https://picsum.photos/id/1015/150/100", desc: "2013.05.06<br>故事开始的地方" },
-      { lat: 31.2304, lng: 121.4737, name: "上海 · 跨年", img: "https://picsum.photos/id/1016/150/100", desc: "2022.01.01<br>外滩烟花" },
-      { lat: 35.6895, lng: 139.6917, name: "东京 · 约定", img: "https://picsum.photos/id/1018/150/100", desc: "2023.04.15<br>樱花树下" },
-      { lat: 48.8566, lng: 2.3522, name: "巴黎 · 未来", img: "https://picsum.photos/id/1019/150/100", desc: "下一站目的地" }
+      { 
+        lat: 38.9208, lng: 121.6392, 
+        name: "大连 · 相识", 
+        img: "https://picsum.photos/id/1015/150/100", 
+        desc: "2013.05.06<br>点击播放回忆",
+        video: "https://vjs.zencdn.net/v/oceans.mp4" // 示例视频1
+      },
+      { 
+        lat: 31.2304, lng: 121.4737, 
+        name: "上海 · 跨年", 
+        img: "https://picsum.photos/id/1016/150/100", 
+        desc: "2022.01.01<br>外滩烟花",
+        video: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" // 示例视频2
+      },
+      { 
+        lat: 35.6895, lng: 139.6917, 
+        name: "东京 · 约定", 
+        img: "https://picsum.photos/id/1018/150/100", 
+        desc: "2023.04.15<br>暂无视频",
+        video: "" // 如果没有视频，留空即可
+      },
+      { 
+        lat: 48.8566, lng: 2.3522, 
+        name: "巴黎 · 未来", 
+        img: "https://picsum.photos/id/1019/150/100", 
+        desc: "下一站目的地",
+        video: "" 
+      }
     ];
 
-    // --- 状态管理 ---
+    // --- 2. 状态管理 ---
     let isZoomedIn = false;
-    // --- 新增：点击锁（关键修复） ---
-    // 用来防止点击卡片时瞬间触发地球背景的点击事件
-    let clickLock = false; 
+    let clickLock = false; // 防止误触锁
 
+    // --- 3. 视频控制逻辑 ---
+    const modal = document.getElementById('video-modal');
+    const player = document.getElementById('main-player');
+    const videoContainer = document.getElementById('video-container');
+
+    // 播放视频
+    function playVideo(videoUrl) {
+      if (!videoUrl) return; // 没视频就不播
+
+      // 1. 设置视频源
+      player.src = videoUrl;
+      
+      // 2. 显示弹窗 (带淡入动画)
+      modal.style.display = "flex";
+      // 强制重绘，让 transition 生效
+      setTimeout(() => {
+        modal.style.opacity = "1";
+        videoContainer.style.transform = "scale(1)";
+      }, 10);
+
+      // 3. 自动播放
+      player.play().catch(e => console.log("自动播放被拦截，需手动点击播放"));
+    }
+
+    // 关闭视频
+    function closeVideo() {
+      // 1. 动画隐藏
+      modal.style.opacity = "0";
+      videoContainer.style.transform = "scale(0.8)";
+      
+      // 2. 暂停视频并清空
+      player.pause();
+      
+      // 3. 延迟彻底隐藏 DOM
+      setTimeout(() => {
+        modal.style.display = "none";
+        player.src = ""; // 停止缓冲
+      }, 300);
+    }
+
+    // --- 4. 初始化地球 ---
     const world = Globe()
       (document.getElementById('globeViz'))
       .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
@@ -60,8 +180,13 @@
       .htmlElement(d => {
         const el = document.createElement('div');
         el.className = 'map-card';
+        
+        // 动态判断：如果有视频，显示一个小播放图标
+        const iconHtml = d.video ? `<div class="play-icon"></div>` : '';
+
         el.innerHTML = `
           <div class="card-content">
+            ${iconHtml}
             <img src="${d.img}" style="width: 100%; border-radius: 4px; display: block; margin-bottom: 5px;">
             <div style="color: #d63031; font-weight: bold; font-size: 14px;">${d.name}</div>
             <div style="color: #333; font-size: 12px; margin-top:2px;">${d.desc}</div>
@@ -70,60 +195,51 @@
                       width: 0; height: 0; 
                       border-left: 8px solid transparent; 
                       border-right: 8px solid transparent; 
-                      border-top: 8px solid rgba(255, 255, 255, 0.85);"></div>
+                      border-top: 8px solid rgba(255, 255, 255, 0.9);"></div>
         `;
         
-        // --- 点击卡片（下探） ---
         el.onclick = (event) => {
-          // 1. 阻止 DOM 冒泡
           event.stopPropagation();
           event.stopImmediatePropagation();
 
-          console.log("飞向:", d.name);
-
-          // 2. 【核心修复】上锁！
-          // 告诉程序：接下来 500ms 内，如果检测到地球被点击，那是误触，别理它！
+          // 加锁，防止地球误触
           clickLock = true;
-          setTimeout(() => {
-            clickLock = false;
-          }, 500);
+          setTimeout(() => clickLock = false, 500);
 
-          // 3. 设定状态
+          console.log("点击:", d.name);
           isZoomedIn = true;
           world.controls().autoRotate = false;
 
-          // 4. 执行动画
-          world.pointOfView({ lat: d.lat, lng: d.lng, altitude: 0.3 }, 2000);
+          // 1. 先下探
+          world.pointOfView({ lat: d.lat, lng: d.lng, altitude: 0.3 }, 1500);
+
+          // 2. 如果有视频，延迟 1秒 (等飞到一半) 弹出视频
+          if (d.video) {
+            setTimeout(() => {
+              playVideo(d.video);
+            }, 1000); 
+          }
         };
 
         return el;
       });
 
-    // --- 点击地球（恢复） ---
+    // --- 5. 恢复逻辑 ---
     const handleReset = () => {
-      // 【核心修复】如果锁是开着的，说明刚才点了卡片，必须忽略这次“地球点击”
-      if (clickLock) {
-        console.log("忽略由于冒泡导致的误触");
-        return;
-      }
+      if (clickLock) return; // 处于保护期，不执行
 
-      // 只有在下探状态下才允许恢复
       if (isZoomedIn) {
-        console.log("返回全览模式");
-        
+        console.log("返回全览");
         world.pointOfView({ altitude: 2.5 }, 2000);
         world.controls().autoRotate = true;
         isZoomedIn = false;
+        
+        // 确保视频也关掉
+        closeVideo();
       }
     };
 
-    // 绑定到地球点击事件
     world.onGlobeClick(handleReset);
-    
-    // 绑定到背景点击事件（防止点星空没反应）
-    // 注意：如果旧版本 globe.gl 不支持这个方法，控制台会报错但不会影响主流程
-    // 为了保险，我们加个 try-catch 或者直接保留 onGlobeClick 即可覆盖大部分场景
-    // 这里只用 onGlobeClick 足够覆盖地球变大后的点击区域
 
     // 初始设置
     world.controls().autoRotate = true;
