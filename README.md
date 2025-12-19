@@ -22,9 +22,7 @@
 
 ## 🎮 在线演示 (Demo)
 
-点击查看演示效果：[你的演示链接 (例如: https://love.yourdomain.com)]
-
-*(如果没有演示链接，可以删掉这一行)*
+点击查看演示效果：[你的演示链接 (例如: https://20130506.xyz)]
 
 ## 🛠️ 快速开始 (Quick Start)
 
@@ -83,11 +81,6 @@ const myPlaces = [
 - **更换地球贴图**： 搜索 `.globeImageUrl(...)`，可以换成更高清的地球图片或复古风格地图。
 - **调整自转速度**： 修改 `world.controls().autoRotateSpeed = 0.6;` (数值越大转得越快)。
 - **调整飞行高度**： 修改 `altitude: 0.3` (数值越小，下探时离地面越近)。
-
-## 🤝 贡献与致谢 (Credits)
-
-- 核心库：[Globe.gl](https://github.com/vasturiano/globe.gl) by vasturiano
-- 灵感来源：[GitHub Open Source Community]
 
 ## 📄 开源协议 (License)
 
